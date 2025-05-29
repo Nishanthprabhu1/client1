@@ -1,19 +1,11 @@
+
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('overlay');
 const canvasCtx = canvasElement.getContext('2d');
 
-const earringImg = new Image();
-const necklaceImg = new Image();
-
-let currentMode = 'earring'; // default
-
-function changeEarring(url) {
-  earringImg.src = url;
-}
-
-function changeNecklace(url) {
-  necklaceImg.src = url;
-}
+let currentMode = 'earring';
+let earringImg = new Image();
+let necklaceImg = new Image();
 
 function selectMode(mode) {
   currentMode = mode;
@@ -21,42 +13,39 @@ function selectMode(mode) {
   document.getElementById('necklace-options').style.display = mode === 'necklace' ? 'flex' : 'none';
 }
 
-fetch('https://script.google.com/macros/s/AKfycbyRFpER7A11MovXxcwuGyc40sNxwEbH-EOIKNV1JOF-CZLopTOqQCwmJp31cY7wlQ6W/exec')
-  .then(response => response.json())
-  .then(data => {
-    const earringContainer = document.getElementById('earring-options');
-    data.earrings.forEach(url => {
-      const button = document.createElement('button');
-      button.onclick = () => changeEarring(url);
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = 'Earring';
-      button.appendChild(img);
-      earringContainer.appendChild(button);
+function loadJewelry(folder, containerId, changer) {
+  fetch('https://script.google.com/macros/s/AKfycbyRFpER7A11MovXxcwuGyc40sNxwEbH-EOIKNV1JOF-CZLopTOqQCwmJp31cY7wlQ6W/exec?type=' + folder)
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      data.forEach(url => {
+        const btn = document.createElement('button');
+        const img = document.createElement('img');
+        img.src = url;
+        btn.appendChild(img);
+        btn.onclick = () => changer(url);
+        container.appendChild(btn);
+      });
     });
+}
 
-    const necklaceContainer = document.getElementById('necklace-options');
-    data.necklaces.forEach(url => {
-      const button = document.createElement('button');
-      button.onclick = () => changeNecklace(url);
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = 'Necklace';
-      button.appendChild(img);
-      necklaceContainer.appendChild(button);
-    });
-  })
-  .catch(error => console.error('Error loading jewelry images:', error));
+function changeEarring(src) {
+  earringImg.src = src;
+}
+function changeNecklace(src) {
+  necklaceImg.src = src;
+}
 
-const faceMesh = new FaceMesh({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-});
+loadJewelry('earrings', 'earring-options', changeEarring);
+loadJewelry('necklaces', 'necklace-options', changeNecklace);
 
+const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
 faceMesh.setOptions({
   maxNumFaces: 1,
   refineLandmarks: true,
   minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
+  minTrackingConfidence: 0.5,
 });
 
 let leftEarPositions = [], rightEarPositions = [], chinPositions = [];
@@ -69,27 +58,13 @@ function smooth(positions) {
 
 faceMesh.onResults((results) => {
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
   if (results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
-    const offsetY = 20;
+    const left = { x: landmarks[132].x * canvasElement.width, y: landmarks[132].y * canvasElement.height - 20 };
+    const right = { x: landmarks[361].x * canvasElement.width, y: landmarks[361].y * canvasElement.height - 20 };
+    const chin = { x: landmarks[152].x * canvasElement.width, y: landmarks[152].y * canvasElement.height + 10 };
 
-    const left = {
-      x: landmarks[132].x * canvasElement.width,
-      y: landmarks[132].y * canvasElement.height - offsetY,
-    };
-    const right = {
-      x: landmarks[361].x * canvasElement.width,
-      y: landmarks[361].y * canvasElement.height - offsetY,
-    };
-    const chin = {
-      x: landmarks[152].x * canvasElement.width,
-      y: landmarks[152].y * canvasElement.height + 10,
-    };
-
-    leftEarPositions.push(left);
-    rightEarPositions.push(right);
-    chinPositions.push(chin);
+    leftEarPositions.push(left); rightEarPositions.push(right); chinPositions.push(chin);
     if (leftEarPositions.length > 5) leftEarPositions.shift();
     if (rightEarPositions.length > 5) rightEarPositions.shift();
     if (chinPositions.length > 5) chinPositions.shift();
@@ -110,9 +85,7 @@ faceMesh.onResults((results) => {
 });
 
 const camera = new Camera(videoElement, {
-  onFrame: async () => {
-    await faceMesh.send({ image: videoElement });
-  },
+  onFrame: async () => await faceMesh.send({ image: videoElement }),
   width: 1280,
   height: 720,
 });

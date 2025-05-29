@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Cinzel&family=Poppins&display=swap');
 * {
   margin: 0;
@@ -87,10 +88,4 @@ video, canvas {
 .options-group button:hover img {
   border: 2px solid #ffd700;
   transform: scale(1.05);
-}
-.label {
-  color: #ffd700;
-  font-size: 16px;
-  font-weight: bold;
-  margin-right: 15px;
 }
